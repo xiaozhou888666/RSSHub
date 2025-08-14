@@ -1,50 +1,46 @@
+# zeabur:m_image_tag diy_god_rsshub:latest
+# zeabur:m_image_tag browserless_chrome:latest
+# zeabur:m_image_tag redis_redis_stack_server:latest
+
 services:
-    rsshub:
-        # two ways to enable puppeteer:
-        # * comment out marked lines, then use this image instead: diygod/rsshub:chromium-bundled
-        # * (consumes more disk space and memory) leave everything unchanged
-        image: diygod/rsshub # or ghcr.io/diygod/rsshub
-        restart: always
-        ports:
-            - "1200:1200"
-        environment:
-            NODE_ENV: production
-            CACHE_TYPE: redis
-            REDIS_URL: "redis://redis:6379/"
-            PUPPETEER_WS_ENDPOINT: "ws://browserless:3000" # marked
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:1200/healthz"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-        depends_on:
-            - redis
-            - browserless # marked
+  # 1. RSSHub 主服务 (大脑)
+  rsshub:
+    image: diygod/rsshub:latest
+    restart: always
+    ports:
+      - "1200:1200"
+    environment:
+      # --- 强大与完善配置 ---
+      NODE_ENV: production
+      CACHE_TYPE: redis
+      REDIS_URL: 'redis://redis:6379'
+      PUPPETEER_WS_ENDPOINT: 'ws://browserless:3000'
+      # (可选) 全文抓取API Key, 让只输出摘要的RSS源输出全文
+      # FT_API_KEY: '' 
 
-    browserless: # marked
-        image: browserless/chrome # marked
-        restart: always # marked
-        ulimits: # marked
-            core: # marked
-                hard: 0 # marked
-                soft: 0 # marked
-        healthcheck: # marked
-            test: ["CMD", "curl", "-f", "http://localhost:3000/pressure"] # marked
-            interval: 30s # marked
-            timeout: 10s # marked
-            retries: 3 # marked
+      # --- 安全性配置 ---
+      # 【重要】访问密钥, 防止你的服务被滥用 (请修改为你自己的复杂密码)
+      ACCESS_KEY: '6c4173d7e0dc4bba98b94033a219ca0d'
 
-    redis:
-        image: redis:alpine
-        restart: always
-        volumes:
-            - redis-data:/data
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 30s
-            timeout: 10s
-            retries: 5
-            start_period: 5s
+      # --- 稳定性配置 ---
+      # 增加Puppeteer的超时时间 (单位: 毫秒)，防止复杂页面抓取失败
+      PUPPETEER_TIMEOUT: 20000
 
-volumes:
-    redis-data:
+    depends_on:
+      - redis
+      - browserless
+
+  # 2. Puppeteer/Browserless 服务 (强力抓手)
+  browserless:
+    image: browserless/chrome:latest
+    restart: always
+    environment:
+      # 限制并发请求数，防止内存溢出
+      MAX_CONCURRENT_SESSIONS: 10 
+      # 连接超时设置
+      CONNECTION_TIMEOUT: 30000
+
+  # 3. Redis 缓存服务 (高速缓存)
+  redis:
+    image: redis/redis-stack-server:latest
+    restart: always
