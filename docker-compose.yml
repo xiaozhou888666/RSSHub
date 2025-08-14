@@ -3,44 +3,53 @@
 # zeabur:m_image_tag redis_redis_stack_server:latest
 
 services:
-  # 1. RSSHub 主服务 (大脑)
+  # 1. RSSHub 主服务
   rsshub:
     image: diygod/rsshub:latest
     restart: always
     ports:
       - "1200:1200"
     environment:
-      # --- 强大与完善配置 ---
       NODE_ENV: production
       CACHE_TYPE: redis
       REDIS_URL: 'redis://redis:6379'
       PUPPETEER_WS_ENDPOINT: 'ws://browserless:3000'
-      # (可选) 全文抓取API Key, 让只输出摘要的RSS源输出全文
-      # FT_API_KEY: '' 
-
-      # --- 安全性配置 ---
-      # 【重要】访问密钥, 防止你的服务被滥用 (请修改为你自己的复杂密码)
-      ACCESS_KEY: '6c4173d7e0dc4bba98b94033a219ca0d'
-
-      # --- 稳定性配置 ---
-      # 增加Puppeteer的超时时间 (单位: 毫秒)，防止复杂页面抓取失败
+      # 确保这里是你自己的复杂密码
+      ACCESS_KEY: '6c4173d7e0dc4bba98b94033a219ca0d' 
       PUPPETEER_TIMEOUT: 20000
-
     depends_on:
-      - redis
-      - browserless
+      redis:
+        condition: service_healthy
+      browserless:
+        condition: service_healthy
+    # 新增的健康检查，确保rsshub自身也健康
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1200/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
-  # 2. Puppeteer/Browserless 服务 (强力抓手)
+  # 2. Puppeteer/Browserless 服务
   browserless:
     image: browserless/chrome:latest
     restart: always
-    environment:
-      # 限制并发请求数，防止内存溢出
-      MAX_CONCURRENT_SESSIONS: 10 
-      # 连接超时设置
-      CONNECTION_TIMEOUT: 30000
+    # 新增的健康检查，确保浏览器服务已就绪
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
-  # 3. Redis 缓存服务 (高速缓存)
+  # 3. Redis 缓存服务
   redis:
     image: redis/redis-stack-server:latest
     restart: always
+    # 新增的健康检查，确保Redis服务已就绪
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
