@@ -1,18 +1,64 @@
-# zeabur:m_image_tag diygod_rsshub:chromium-bundled
+# RSSHub 黄金标准部署配置
+# 适用于拥有 Docker 和 Docker-Compose 的标准服务器环境 (建议至少1GB内存)
+# version: "3.8" # 建议使用较新的docker-compose版本
 
 services:
-  # 只保留这一个服务
+  # 1. RSSHub 主服务 (大脑)
   rsshub:
-    # 使用内置了Puppeteer和浏览器的特殊镜像
-    image: diygod/rsshub:chromium-bundled
+    image: diygod/rsshub:latest
     restart: always
     ports:
       - "1200:1200"
     environment:
-      # NODE_ENV设为production
+      # --- 基础与性能配置 ---
       NODE_ENV: production
-      # 【重要】不再需要PUPPETEER_WS_ENDPOINT，因为浏览器是内置的
-      # 【重要】暂时禁用缓存，排除Redis的干扰
-      CACHE_TYPE: 'memory'
-      # 确保这里是你自己的复杂密码
-      ACCESS_KEY: '6c4173d7e0dc4bba98b94033a219ca0d'
+      CACHE_TYPE: redis
+      REDIS_URL: 'redis://redis:6379'
+      PUPPETEER_WS_ENDPOINT: 'ws://browserless:3000'
+      
+      # --- 安全性配置 ---
+      # 【非常重要】请务必修改为您自己的、足够复杂的密码！
+      ACCESS_KEY: '6c4173d7e0dc4bba98b94033a219ca0d' 
+      
+      # --- 稳定性与功能配置 ---
+      # 增加Puppeteer的超时时间 (单位: 毫秒)，防止复杂页面抓取失败
+      PUPPETEER_TIMEOUT: 20000
+      # (可选) 如果您有全文抓取API Key，可以填入这里
+      # FT_API_KEY: '' 
+
+    depends_on:
+      # 等待依赖的服务完全健康后再启动
+      redis:
+        condition: service_healthy
+      browserless:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1200/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # 2. Puppeteer/Browserless 服务 (强力抓手)
+  browserless:
+    image: browserless/chrome:latest
+    restart: always
+    healthcheck:
+      # 等待浏览器服务完全就绪
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # 3. Redis 缓存服务 (高速缓存)
+  redis:
+    image: redis/redis-stack-server:latest
+    restart: always
+    healthcheck:
+      # 等待Redis服务完全就绪
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
