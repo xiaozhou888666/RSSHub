@@ -15,4 +15,4 @@ services:
       # 【重要】暂时禁用缓存，排除Redis的干扰
       CACHE_TYPE: 'memory'
       # 确保这里是你自己的复杂密码
-      ACCESS_KEY: 'YourSuperStrongPassword123!'
+      ACCESS_KEY: '6c4173d7e0dc4bba98b94033a219ca0d'
