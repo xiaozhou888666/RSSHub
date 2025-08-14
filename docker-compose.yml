@@ -15,7 +15,7 @@ services:
       REDIS_URL: redis://redis:6379
       PUPPETEER_WS_ENDPOINT: ws://browserless:3000
       # 安全：请务必改成你自己的随机字符串
-      ACCESS_KEY: zeabur_rsshub_demo_key_change_me
+      ACCESS_KEY: 6c4173d7e0dc4bba98b94033a219ca0d
       # 超时
       PUPPETEER_TIMEOUT: 20000
     depends_on:
